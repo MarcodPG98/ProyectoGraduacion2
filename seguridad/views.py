@@ -5,6 +5,14 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
 from .models import Usuario
 from .serializers import UsuarioSerializer
+from django.http import HttpResponse
+from django.http import JsonResponse
+
+def usuario_list(request):
+    return JsonResponse({"mensaje": "Lista de usuarios (ejemplo)."})
+
+def home(request):
+    return HttpResponse("Bienvenido al backend de Phishing Protection.")
 
 class UsuarioViewSet(ModelViewSet):
     queryset = Usuario.objects.all()

@@ -5,10 +5,10 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="df0c256b-bb45-4839-b5d3-d77b85428fba" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/seguridad/urls.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/phishing_protection/settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/phishing_protection/settings.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/phishing_protection/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/phishing_protection/urls.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/seguridad/urls.py" beforeDir="false" afterPath="$PROJECT_DIR$/seguridad/urls.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/seguridad/views.py" beforeDir="false" afterPath="$PROJECT_DIR$/seguridad/views.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -95,7 +95,7 @@
       <option name="number" value="Default" />
       <option name="presentableId" value="Default" />
       <updated>1736995291837</updated>
-      <workItem from="1736995293093" duration="1682000" />
+      <workItem from="1736995293093" duration="2849000" />
     </task>
     <servers />
   </component>
