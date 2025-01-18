@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 
 # Modelo Usuario
 class Usuario(models.Model):
@@ -17,7 +18,7 @@ class CorreoElectrico(models.Model):
     remitente = models.CharField(max_length=70)
     asunto = models.CharField(max_length=70)
     contenido = models.TextField()
-    fecha_recibido = models.DateTimeField()
+    fecha_recibido = models.DateTimeField(auto_now_add=True)  # Fecha de recepción, se guarda automáticamente
     etiqueta = models.CharField(max_length=10, choices=[('legitimo', 'Legítimo'), ('malicioso', 'Malicioso')])
     es_phishing = models.BooleanField()
 
@@ -32,7 +33,7 @@ class PhishingReporte(models.Model):
     fecha_reporte = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"Reporte {self.id} - {self.correo.asunto}"
+        return f"Reporte - Usuario: {self.usuario.nombre}, Descripcion: {self.descripcion}"
 
 # Modelo Configuracion_Seguridad
 class ConfiguracionSeguridad(models.Model):

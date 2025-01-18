@@ -13,5 +13,6 @@ router.register(r'configuraciones', ConfiguracionSeguridadViewSet)
 urlpatterns = [
     path('api/', include(router.urls)),
     path('usuarios/', UsuarioListView.as_view(), name='usuario_list'),
+    path('verificar_correo/', views.verificar_correo, name='verificar_correo'),
     path('predecir/', views.predecir, name='predecir'),
 ]

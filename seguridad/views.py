@@ -1,5 +1,5 @@
 from rest_framework import viewsets
-from .models import Usuario, CorreoElectrico, PhishingReporte, ConfiguracionSeguridad
+from .models import ConfiguracionSeguridad
 from .serializers import UsuarioSerializer, CorreoElectricoSerializer, PhishingReporteSerializer, ConfiguracionSeguridadSerializer
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.viewsets import ModelViewSet
@@ -8,10 +8,12 @@ from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 import pickle,json
-from .predictor import predecir_spam
+import joblib
+import os
+from django.views.decorators.csrf import csrf_exempt
+from .models import PhishingReporte, CorreoElectrico, Usuario
+import logging
 
 def usuario_list(request):
     return JsonResponse({"mensaje": "Lista de usuarios (ejemplo)."})
@@ -53,24 +55,119 @@ class ConfiguracionSeguridadViewSet(viewsets.ModelViewSet):
     queryset = ConfiguracionSeguridad.objects.all()
     serializer_class = ConfiguracionSeguridadSerializer
 
-# Vista para recibir correo y devolver la predicción
+# Vista para recibir correo electrónico y verificar con el si es malicioso o legitimo
+@csrf_exempt
+def verificar_correo(request):
+    if request.method == 'POST':
+        try:
+            # Obtener el contenido del correo, el usuario_id, el remitente y el asunto desde la solicitud
+            data = json.loads(request.body)
+            contenido = data.get('contenido')
+            usuario_id = data.get('usuario_id')
+            remitente = data.get('remitente')
+            asunto = data.get('asunto')
+
+            logging.basicConfig(level=logging.DEBUG)
+
+            # Registro de datos recibidos
+            logging.debug(f'Datos recibidos: {data}')
+
+            if not contenido or not usuario_id or not remitente or not asunto:
+                return JsonResponse({'error': 'Faltan datos (contenido, usuario_id, remitente o asunto).'}, status=400)
+
+            # Verificar si el usuario existe en la base de datos
+            try:
+                usuario = Usuario.objects.get(id=usuario_id)
+            except Usuario.DoesNotExist:
+                return JsonResponse({'error': f'No se encontró un usuario con ID {usuario_id}.'}, status=404)
+
+            # Cargar el modelo y el vectorizador
+            modelo_path = os.path.join('seguridad', 'models', 'modelo_spam.pkl')
+            vectorizador_path = os.path.join('seguridad', 'models', 'vectorizer.pkl')
+
+            # Validar que los archivos existan
+            if not os.path.exists(modelo_path) or not os.path.exists(vectorizador_path):
+                return JsonResponse({'error': 'El modelo o vectorizador no se encuentran en la carpeta especificada.'}, status=500)
+
+            modelo = joblib.load(modelo_path)
+            vectorizador = joblib.load(vectorizador_path)
+
+            # Preprocesar el contenido del correo y hacer la predicción
+            correo_vectorizado = vectorizador.transform([contenido])
+            logging.debug(f'Vectorización del contenido: {correo_vectorizado}')
+
+            prediccion = modelo.predict(correo_vectorizado)[0]  # 1: malicioso, 0: legítimo
+            logging.debug(f'Resultado de la predicción: {prediccion}')
+
+            # Asignar la etiqueta basada en la predicción
+            etiqueta = 'malicioso' if prediccion == 1 else 'legítimo'
+
+            # Guardar la información en la tabla CorreoElectrico
+            CorreoElectrico.objects.create(
+                usuario=usuario,
+                contenido=contenido,
+                es_phishing=prediccion,  # Guardamos el valor exacto de la predicción
+                remitente=remitente,
+                asunto=asunto,
+                etiqueta=etiqueta  # Asegúrate de guardar la etiqueta aquí
+            )
+
+            # Responder con la predicción y el estado del correo
+            return JsonResponse({
+                'usuario_id': usuario_id,
+                'contenido': contenido,
+                'es_phishing': bool(prediccion),  # 1: malicioso, 0: legítimo
+                'remitente': remitente,
+                'asunto': asunto,
+                'etiqueta': etiqueta,  # Incluir la etiqueta en la respuesta
+                'descripcion': 'Correo malicioso' if prediccion == 1 else 'Correo legítimo'
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
+
+    return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+# Vista para verificar el contenido del correo y devolver la predicción
 @csrf_exempt
 def predecir(request):
     if request.method == 'POST':
-        if request.content_type == 'application/json':
-            try:
-                # Leer los datos JSON del cuerpo de la solicitud
-                data = json.loads(request.body)
-                correo_texto = data.get('contenido')
+        try:
+            # Obtener el usuario_id desde la solicitud
+            data = json.loads(request.body)
+            usuario_id = data.get('usuario_id')
 
-                if correo_texto:
-                    resultado = predecir_spam(correo_texto)
-                    return JsonResponse({'resultado': resultado})
-                else:
-                    return JsonResponse({'error': 'No se proporcionó contenido en el correo'}, status=400)
-            except json.JSONDecodeError:
-                return JsonResponse({'error': 'Error al procesar el JSON'}, status=400)
-        else:
-            return JsonResponse({'error': 'Tipo de contenido no permitido. Usa application/json.'}, status=415)
+            if not usuario_id:
+                return JsonResponse({'error': 'Falta el usuario_id.'}, status=400)
+
+            # Verificar si el usuario existe en la tabla CorreoElectrico
+            correo = CorreoElectrico.objects.filter(
+                usuario_id=usuario_id).first()  # Obtener el primer correo asociado al usuario
+
+            if not correo:
+                return JsonResponse({'error': f'No se encontró ningún correo asociado al usuario con ID {usuario_id}.'},
+                                    status=404)
+
+            # Obtener el valor de es_phishing
+            es_phishing = correo.es_phishing  # 1: malicioso, 0: legítimo
+
+            # Crear un informe en la tabla PhishingReporte
+            descripcion = 'Correo legítimo' if es_phishing == 0 else 'Correo malicioso'
+            phishing_reporte = PhishingReporte.objects.create(
+                correo=correo,  # Relacionar con el correo
+                usuario=correo.usuario,  # Relacionar con el usuario que posee el correo
+                descripcion=descripcion,  # Descripción basada en la predicción
+            )
+
+            # Responder con la predicción y la descripción
+            return JsonResponse({
+                'usuario_id': usuario_id,
+                'correo_id': correo.id,
+                'es_phishing': es_phishing,
+                'descripcion': descripcion
+            })
+
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=500)
 
     return JsonResponse({'error': 'Método no permitido'}, status=405)

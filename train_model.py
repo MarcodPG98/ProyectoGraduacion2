@@ -1,28 +1,32 @@
 import os
-import django
 
-# Configura el entorno de Django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'phishing_protection.settings')  # Reemplaza con tu configuración
-django.setup()
+import pandas as pd
+from seguridad.utils import preprocesar_datos, entrenar_modelo, guardar_modelo_y_vectorizador, \
+    obtener_datos_entrenamiento
 
-# Importar funciones de utils.py
-from seguridad.utils import obtener_datos_entrenamiento, preprocesar_datos, entrenar_modelo, guardar_modelo_y_vectorizador
 
-# Flujo de entrenamiento
 def main():
-    print("Obteniendo datos de entrenamiento desde la base de datos...")
+
+    # Cargar los datos desde el archivo CSV
+    print("Cargando datos desde el archivo CSV...")
     df = obtener_datos_entrenamiento()
 
-    print("Preprocesando los datos...")
+    # Mostrar una vista previa de los datos cargados
+    print(df.head())
+
+    # Preprocesar los datos
+    print("Preprocesando datos...")
     X, y, vectorizer = preprocesar_datos(df)
 
+    # Entrenar el modelo
     print("Entrenando el modelo...")
     modelo = entrenar_modelo(X, y)
 
+    # Guardar el modelo y el vectorizador
     print("Guardando el modelo y el vectorizador...")
     guardar_modelo_y_vectorizador(modelo, vectorizer)
 
-    print("¡Entrenamiento y guardado completados con éxito!")
+    print("Entrenamiento completado y modelo guardado con éxito.")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
